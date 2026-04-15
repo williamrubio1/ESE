@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesador de RIPS - {{ titulo_modulo }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-modo="{{ modo }}">
+    <div class="container">
+        <header>
+            <h1>{{ titulo_modulo }}</h1>
+            <p class="subtitle">{{ descripcion_modulo }}</p>
+            <div class="module-switcher">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Inicio</a>
+                <a href="{{ url_for('modulo_carga') }}" class="btn {% if modo == 'carga' %}btn-primary{% else %}btn-secondary{% endif %}">Carga</a>
+                <a href="{{ url_for('modulo_inverso') }}" class="btn {% if modo == 'inverso' %}btn-primary{% else %}btn-secondary{% endif %}">Inverso</a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Zona de carga de archivos -->
+            <section class="upload-section">
+                <div class="drop-zone" id="dropZone">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <h2>Arrastra tu archivo JSON aquí</h2>
+                    <p>o</p>
+                    <label for="fileInput" class="btn btn-primary">Buscar archivo en el PC</label>
+                    <input type="file" id="fileInput" accept=".json" hidden>
+                    <p class="file-info">Solo archivos JSON</p>
+                </div>
+                <div class="selected-file" id="selectedFile" style="display: none;">
+                    <span class="file-name" id="fileName"></span>
+                    <button class="btn-remove" id="removeFile">&times;</button>
+                </div>
+            </section>
+
+            <!-- Botón de procesamiento -->
+            <section class="action-section">
+                <button class="btn btn-process" id="processBtn" disabled>
+                    {% if modo == 'inverso' %}Procesar archivo (inverso){% else %}Procesar archivo{% endif %}
+                </button>
+                <div class="loader" id="loader" style="display: none;"></div>
+            </section>
+
+            <!-- Sección de estadísticas -->
+            <section class="stats-section" id="statsSection" style="display: none;">
+                <h2>Estadísticas de procesamiento</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statEncontrados">0</div>
+                        <div class="stat-label">Medicamentos encontrados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statUnidades">0</div>
+                        <div class="stat-label">Unidades sustituidas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statCodigos">0</div>
+                        <div class="stat-label">Códigos sustituidos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statNoEncontrados">0</div>
+                        <div class="stat-label">No encontrados</div>
+                        <details class="stat-details" id="detailsNoEncontrados" style="display: none;">
+                            <summary>Ver detalles</summary>
+                            <ul id="listNoEncontrados" class="detail-list"></ul>
+                        </details>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statNuevos">0</div>
+                        <div class="stat-label">Nuevos en cum.json</div>
+                        <details class="stat-details" id="detailsNuevos" style="display: none;">
+                            <summary>Ver detalles</summary>
+                            <ul id="listNuevos" class="detail-list"></ul>
+                        </details>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statProcedimientos">0</div>
+                        <div class="stat-label">Procedimientos modificados</div>
+                        <details class="stat-details" id="detailsProcedimientos" style="display: none;">
+                            <summary>Ver detalles</summary>
+                            <ul id="listProcedimientos" class="detail-list"></ul>
+                        </details>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Notificación de éxito -->
+            <div class="notification success" id="successNotification" style="display: none;">
+                <div class="notification-icon">✓</div>
+                <div class="notification-content">
+                    <h3>Procesamiento completado</h3>
+                    <p>El archivo se ha procesado correctamente</p>
+                </div>
+            </div>
+
+            <!-- Notificación de error -->
+            <div class="notification error" id="errorNotification" style="display: none;">
+                <div class="notification-icon">✕</div>
+                <div class="notification-content">
+                    <h3>Error</h3>
+                    <p id="errorMessage"></p>
+                </div>
+            </div>
+
+            <!-- Botón de descarga -->
+            <section class="download-section" id="downloadSection" style="display: none;">
+                <button class="btn btn-download" id="downloadBtn">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Descargar archivo procesado
+                </button>
+            </section>
+
+            <!-- Sección de logs (opcional) -->
+            <section class="logs-section">
+                <details>
+                    <summary>Ver registro de modificaciones</summary>
+                    <div class="logs-container" id="logsContainer">
+                        <button class="btn btn-secondary" id="loadLogsBtn">Cargar logs</button>
+                        <pre id="logsContent"></pre>
+                    </div>
+                </details>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Procesador de RIPS - Sistema de gestión de medicamentos y procedimientos</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

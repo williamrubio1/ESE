@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procesador de RIPS - Inicio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Procesador de RIPS</h1>
+            <p class="subtitle">Selecciona el módulo que deseas ejecutar</p>
+        </header>
+
+        <main>
+            <section class="modules-section">
+                <a class="module-card" href="{{ url_for('modulo_carga') }}">
+                    <h2>Módulo de carga</h2>
+                    <p>Aplica la sustitución de finalidades en procedimientos y procesa medicamentos con cum.json.</p>
+                    <span class="module-action">Entrar al módulo</span>
+                </a>
+
+                <a class="module-card" href="{{ url_for('modulo_inverso') }}">
+                    <h2>Módulo inverso</h2>
+                    <p>Revierte las finalidades sustituidas cuando la finalidad y el diagnóstico coinciden con las reglas.</p>
+                    <span class="module-action">Entrar al módulo</span>
+                </a>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Procesador de RIPS - Sistema de gestión de medicamentos y procedimientos</p>
+        </footer>
+    </div>
+</body>
+</html>

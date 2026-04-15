@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Conversor Excel → JSON{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🔄 Conversor Excel → JSON</h1>
+    <p>Conversión rápida de archivos Excel a formato JSON sin validación exhaustiva</p>
+</div>
+
+<div class="info-box" style="margin-bottom: 24px;">
+    <h3>💡 ¿Qué hace este módulo?</h3>
+    <p style="margin-bottom: 12px;">Este conversor toma un archivo Excel (que ya tenga la estructura correcta de PYP, BC o Compuestos) y lo convierte directamente a JSON. A diferencia de los otros módulos, NO aplica validaciones exhaustivas ni genera análisis detallados.</p>
+    
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">¿Cuándo usar este conversor?</h4>
+    <ul>
+        <li><strong>Ya tienes un Excel validado:</strong> Cuando has trabajado en un Excel y solo necesitas regenerar el JSON</li>
+        <li><strong>Necesitas conversión rápida:</strong> No requieres validaciones complejas ni análisis detallado</li>
+        <li><strong>Pruebas rápidas:</strong> Ideal para hacer pruebas de estructura y formato</li>
+        <li><strong>Re-exportación:</strong> Cuando quieres volver a generar el JSON después de ediciones menores</li>
+    </ul>
+    
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Características:</h4>
+    <ul>
+        <li><strong>Detección automática:</strong> Identifica si el Excel es de PYP, BC o Compuestos analizando los nombres de las hojas</li>
+        <li><strong>Tipos de datos correctos:</strong> Respeta los formatos definidos (números como números, textos como textos)</li>
+        <li><strong>Descarga inmediata:</strong> Genera y descarga el JSON en segundos</li>
+        <li><strong>Sin análisis completo:</strong> No genera Excel de salida ni aplica todas las validaciones</li>
+    </ul>
+    
+    <p style="margin-top: 12px; padding: 12px; background: #fff3cd; border-radius: 4px; font-size: 0.9rem;">
+        <strong>⚠️ Importante:</strong> Si necesitas validaciones completas, análisis detallado y generación de Excel, usa los módulos PYP, BC o Compuestos en lugar de este conversor.
+    </p>
+</div>
+
+<div class="process-container">
+    <!-- Procesamiento de Excel -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">1</span>
+            <h2>Cargar Archivo Excel</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Carga un archivo Excel (.xlsx o .xls) para convertirlo directamente a JSON.
+                El sistema detectará automáticamente el tipo de archivo (PyP, BC o Compuestos).
+            </p>
+            <form id="uploadForm" method="POST" enctype="multipart/form-data" class="upload-form">
+                <div class="file-input-wrapper" data-drop-upload>
+                    <label for="excel-file" class="file-label">
+                        <div class="file-drop-main">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Arrastra un archivo Excel aquí</span>
+                        </div>
+                        <span class="file-drop-hint">o haz clic para buscarlo en tu equipo</span>
+                        <span id="excel-filename" class="file-drop-selected">Seleccionar archivo Excel</span>
+                    </label>
+                    <input type="file" id="excel-file" name="file" accept=".xlsx,.xls" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="convertBtn">
+                    🔄 Convertir a JSON
+                </button>
+            </form>
+            
+            <div id="loading" style="display: none; text-align: center; margin-top: 20px;">
+                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <p style="margin-top: 10px; color: #666;">Procesando archivo...</p>
+            </div>
+            
+            <div id="successMessage" class="alert alert-success" style="display: none; margin-top: 20px;">
+                ✅ Archivo convertido exitosamente. Descarga iniciada.
+            </div>
+            
+            <div id="errorMessage" class="alert alert-danger" style="display: none; margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <!-- Información sobre el conversor -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">ℹ️</span>
+            <h2>Características del Conversor</h2>
+        </div>
+        <div class="process-body">
+            <ul class="features-list">
+                <li><strong>Detección Automática:</strong> Identifica si el Excel es de PyP, BC o Compuestos según las hojas</li>
+                <li><strong>Tipos de Datos Correctos:</strong> Respeta los formatos definidos en FIELD_FORMATS (enteros, strings, etc.)</li>
+                <li><strong>Sin Validación Completa:</strong> Convierte directamente sin aplicar reglas de validación avanzadas</li>
+                <li><strong>Descarga Inmediata:</strong> Genera y descarga el JSON automáticamente al finalizar</li>
+            </ul>
+            
+            <div class="info-box" style="margin-top: 20px;">
+                <h3>💡 ¿Cuándo usar este conversor?</h3>
+                <p>Este conversor es ideal cuando:</p>
+                <ul>
+                    <li>Ya tienes un archivo Excel con la estructura correcta</li>
+                    <li>Solo necesitas el JSON sin análisis detallado</li>
+                    <li>Quieres una conversión rápida sin validaciones exhaustivas</li>
+                </ul>
+                <p style="margin-top: 10px;"><strong>Nota:</strong> Si necesitas validaciones completas y análisis detallado, usa las opciones de PYP, BC o Compuestos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+}
+
+.features-list li {
+    padding: 10px 0;
+    padding-left: 25px;
+    position: relative;
+    color: #555;
+}
+
+.features-list li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #28a745;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.info-box {
+    background: #e7f3ff;
+    border-left: 4px solid #007bff;
+    padding: 15px 20px;
+    border-radius: 5px;
+}
+
+.info-box h3 {
+    margin-bottom: 10px;
+    color: #007bff;
+    font-size: 16px;
+}
+
+.info-box ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.info-box li {
+    margin: 5px 0;
+    color: #555;
+}
+</style>
+
+<script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('excel-file');
+    const fileNameSpan = document.getElementById('excel-filename');
+    const convertBtn = document.getElementById('convertBtn');
+    const loading = document.getElementById('loading');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+
+    // Actualizar nombre de archivo seleccionado
+    fileInput.addEventListener('change', function(e) {
+        const filename = e.target.files[0]?.name || 'Seleccionar archivo Excel';
+        fileNameSpan.textContent = filename;
+    });
+
+    // Submit del formulario
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const file = fileInput.files[0];
+        if (!file) {
+            showError('Por favor selecciona un archivo');
+            return;
+        }
+
+        // Validar extensión
+        const validExtensions = ['.xlsx', '.xls'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (!validExtensions.includes(fileExtension)) {
+            showError('❌ Archivo no válido. Solo se permiten archivos .xlsx o .xls');
+            return;
+        }
+
+        // Mostrar loading
+        loading.style.display = 'block';
+        convertBtn.disabled = true;
+        hideAlerts();
+
+        // Crear FormData
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/excel-to-json/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al convertir el archivo');
+            }
+
+            // Descargar JSON
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = file.name.replace(/\.(xlsx|xls)$/i, '.json');
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            showSuccess();
+            
+        } catch (error) {
+            showError('❌ Error: ' + error.message);
+        } finally {
+            loading.style.display = 'none';
+            convertBtn.disabled = false;
+        }
+    });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        successMessage.style.display = 'none';
+    }
+
+    function showSuccess() {
+        successMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
+    }
+
+    function hideAlerts() {
+        errorMessage.style.display = 'none';
+        successMessage.style.display = 'none';
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio - Validación JSON{% endblock %}
+
+{% block content %}
+<div class="home-shell">
+    <section class="home-hero home-hero-grid">
+        <div class="home-hero-copy">
+            <span class="hero-kicker">Centro de operaciones RIPS</span>
+            <h1>Valida, transforma y mueve archivos sin perder ritmo.</h1>
+            <p class="home-subtitle">Accesos directos para los flujos más usados. Menos lectura, más acción.</p>
+        </div>
+        <div class="home-hero-panel">
+            <div class="hero-stat-card">
+                <span class="hero-stat-label">Rutas rápidas</span>
+                <strong>8 módulos</strong>
+            </div>
+            <div class="hero-stat-card">
+                <span class="hero-stat-label">Vista actual</span>
+                <strong>Inicio operativo</strong>
+            </div>
+            <div class="hero-pills">
+                <span>RIPS</span>
+                <span>JSON</span>
+                <span>Excel</span>
+                <span>OCR</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="home-section">
+        <div class="home-section-head">
+            <span class="section-tag">Validación</span>
+            <h2>Módulos RIPS</h2>
+        </div>
+        <div class="floating-modules-grid floating-modules-grid-main">
+            <a href="{{ url_for('pyp') }}" class="floating-module-card accent-cyan">
+                <span class="module-chip">PyM</span>
+                <h3>Validación PyM</h3>
+                <p>Consultas y procedimientos con ruta preventiva.</p>
+                <span class="module-cta">Abrir módulo</span>
+            </a>
+            <a href="{{ url_for('bc') }}" class="floating-module-card accent-amber">
+                <span class="module-chip">BC</span>
+                <h3>Baja Complejidad</h3>
+                <p>Tabla única, morbilidad general y saneamiento clínico.</p>
+                <span class="module-cta">Abrir módulo</span>
+            </a>
+            <a href="{{ url_for('compuestos') }}" class="floating-module-card accent-emerald featured-module">
+                <span class="module-chip">Full</span>
+                <h3>Compuestos</h3>
+                <p>Flujo integral para archivos con múltiples tipos de servicio.</p>
+                <span class="module-cta">Abrir módulo</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="home-section">
+        <div class="home-section-head">
+            <span class="section-tag">Gestión</span>
+            <h2>Herramientas auxiliares</h2>
+        </div>
+        <div class="floating-modules-grid">
+            <a href="{{ url_for('separador') }}" class="floating-module-card accent-slate">
+                <span class="module-chip">Split</span>
+                <h3>Separador JSON</h3>
+                <p>Divide por prestador y empaqueta los resultados.</p>
+                <span class="module-cta">Abrir</span>
+            </a>
+            <a href="{{ url_for('consolidador') }}" class="floating-module-card accent-coral">
+                <span class="module-chip">Merge</span>
+                <h3>Consolidador</h3>
+                <p>Fusiona RIPS y mantiene consecutivos consistentes.</p>
+                <span class="module-cta">Abrir</span>
+            </a>
+            <a href="{{ url_for('excel_to_json') }}" class="floating-module-card accent-indigo">
+                <span class="module-chip">XLSX → JSON</span>
+                <h3>Conversor Excel</h3>
+                <p>Reexporta archivos rápidamente hacia JSON.</p>
+                <span class="module-cta">Abrir</span>
+            </a>
+            <a href="{{ url_for('json_to_excel') }}" class="floating-module-card accent-rose">
+                <span class="module-chip">JSON → XLSX</span>
+                <h3>Conversor JSON</h3>
+                <p>Visualiza datos sin tocar su contenido original.</p>
+                <span class="module-cta">Abrir</span>
+            </a>
+            <a href="{{ url_for('ocr_hcl') }}" class="floating-module-card accent-gold">
+                <span class="module-chip">OCR</span>
+                <h3>Historia Clínica</h3>
+                <p>Extrae texto plano desde PDF en lote.</p>
+                <span class="module-cta">Abrir</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="home-mini-guide">
+        <div>
+            <span class="section-tag">Uso rápido</span>
+            <h2>Entrada breve</h2>
+        </div>
+        <div class="mini-guide-steps">
+            <div class="mini-step">
+                <strong>01</strong>
+                <span>Elige el flujo.</span>
+            </div>
+            <div class="mini-step">
+                <strong>02</strong>
+                <span>Carga el archivo.</span>
+            </div>
+            <div class="mini-step">
+                <strong>03</strong>
+                <span>Descarga el resultado.</span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

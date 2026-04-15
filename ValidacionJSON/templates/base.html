@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON-Fixer</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='multimedia/icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="{{ url_for('static', filename='multimedia/logo.png') }}" alt="SolTIA" class="sidebar-logo">
+            </div>
+            
+            <ul class="nav-links">
+                <li>
+                    <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        <span>Inicio</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-submenu-toggle" onclick="toggleRipsSubmenu(event)">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <span>Validación RIPS</span>
+                        <svg class="submenu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-left: auto; transition: transform 0.3s;">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </a>
+                    <ul class="nav-submenu" id="rips-submenu" style="display: none;">
+                        <li>
+                            <a href="{{ url_for('pyp') }}" class="{% if request.endpoint == 'pyp' %}active{% endif %}">
+                                <span>📋 PYM</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('bc') }}" class="{% if request.endpoint == 'bc' %}active{% endif %}">
+                                <span>🏥 Baja Complejidad</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('compuestos') }}" class="{% if request.endpoint == 'compuestos' %}active{% endif %}">
+                                <span>⚙️ Compuestos</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#" class="nav-submenu-toggle" onclick="toggleGestionSubmenu(event)">
+                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        <span>Gestión JSON</span>
+                        <svg class="submenu-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; margin-left: auto; transition: transform 0.3s;">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </a>
+                    <ul class="nav-submenu" id="gestion-submenu" style="display: none;">
+                        <li>
+                            <a href="{{ url_for('separador') }}" class="{% if request.endpoint == 'separador' %}active{% endif %}">
+                                <span>✂️ Separador</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('consolidador') }}" class="{% if request.endpoint == 'consolidador' or request.endpoint == 'consolidador_consolidar' or request.endpoint == 'consolidador_descargar' %}active{% endif %}">
+                                <span>🔗 Consolidador</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('excel_to_json') }}" class="{% if request.endpoint == 'excel_to_json' %}active{% endif %}">
+                                <span>🔄 Excel → JSON</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('json_to_excel') }}" class="{% if request.endpoint == 'json_to_excel' %}active{% endif %}">
+                                <span>📊 JSON → Excel</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('ocr_hcl') }}" class="{% if request.endpoint == 'ocr_hcl' %}active{% endif %}">
+                                <span>🔍 OCR Historia Clínica</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <div class="sidebar-footer">
+                <p class="footer-label">Desarrollado por</p>
+                <p class="footer-brand">SolTIA</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <main class="container">
+                {% block content %}{% endblock %}
+                <div id="toast-container"></div>
+                <div id="flash-data" style="display:none">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% for category, message in messages %}
+                            <div class="flash-item" data-category="{{ category }}" data-text="{{ message|e }}"></div>
+                        {% endfor %}
+                    {% endwith %}
+                </div>
+            </main>
+
+            <footer>
+                <div class="container">
+                    <p>&copy; 2026 JSON-Modifier - SoluctIA SAS - Contacta al administrador de la plataforma</p>
+                </div>
+            </footer>
+        </div>
+    </div>
+<script>
+    // Toggle submenu RIPS en el sidebar
+    function toggleRipsSubmenu(event) {
+        event.preventDefault();
+        const submenu = document.getElementById('rips-submenu');
+        const arrow = event.currentTarget.querySelector('.submenu-arrow');
+        
+        if (submenu.style.display === 'none' || submenu.style.display === '') {
+            submenu.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+        } else {
+            submenu.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Toggle submenu Gestión JSON en el sidebar
+    function toggleGestionSubmenu(event) {
+        event.preventDefault();
+        const submenu = document.getElementById('gestion-submenu');
+        const arrow = event.currentTarget.querySelector('.submenu-arrow');
+        
+        if (submenu.style.display === 'none' || submenu.style.display === '') {
+            submenu.style.display = 'block';
+            arrow.style.transform = 'rotate(180deg)';
+        } else {
+            submenu.style.display = 'none';
+            arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+
+    // Auto-abrir submenú si hay un item activo dentro de él
+    (function() {
+        var ripsSubmenu    = document.getElementById('rips-submenu');
+        var gestionSubmenu = document.getElementById('gestion-submenu');
+
+        if (ripsSubmenu && ripsSubmenu.querySelector('.active')) {
+            ripsSubmenu.style.display = 'block';
+            var ripsToggle = ripsSubmenu.previousElementSibling;
+            if (ripsToggle) {
+                var arrow = ripsToggle.querySelector('.submenu-arrow');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        if (gestionSubmenu && gestionSubmenu.querySelector('.active')) {
+            gestionSubmenu.style.display = 'block';
+            var gestionToggle = gestionSubmenu.previousElementSibling;
+            if (gestionToggle) {
+                var arrow = gestionToggle.querySelector('.submenu-arrow');
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+            }
+        }
+    })();
+
+    // Redirigir a la página de inicio al recargar y limpiar resultados
+    (function() {
+        if (performance.navigation.type === 1) {
+            // La página fue recargada (F5 o Ctrl+R)
+            // Limpiar cualquier resultado anterior
+            sessionStorage.clear();
+            localStorage.removeItem('lastResult');
+            
+            // Redirigir a inicio
+            window.location.href = "{{ url_for('index') }}";
+        }
+    })();
+    
+    // Mostrar mensajes flash
+    (function(){
+        var nodes = document.querySelectorAll('#flash-data .flash-item');
+        if(!nodes || !nodes.length) return;
+        var container = document.getElementById('toast-container');
+        nodes.forEach(function(n){
+            var cat = n.getAttribute('data-category') || 'info';
+            var txt = n.getAttribute('data-text') || '';
+            var el = document.createElement('div');
+            el.className = 'toast toast-' + cat;
+            el.innerHTML = '<strong>' + (cat==='success'?'✔':'ℹ') + '</strong> ' + txt;
+            container.appendChild(el);
+            setTimeout(function(){ el.classList.add('hide'); setTimeout(function(){ el.remove(); }, 600); }, 6000);
+        });
+    })();
+
+    // Habilitar drag and drop reutilizable en inputs de archivos
+    (function() {
+        var wrappers = document.querySelectorAll('[data-drop-upload]');
+        if (!wrappers.length || typeof DataTransfer === 'undefined') return;
+
+        function buildAcceptedExtensions(accept) {
+            if (!accept) return [];
+            return accept
+                .split(',')
+                .map(function(item) { return item.trim().toLowerCase(); })
+                .filter(function(item) { return item.startsWith('.'); });
+        }
+
+        function filterFiles(files, input) {
+            var accepted = buildAcceptedExtensions(input.getAttribute('accept'));
+            var filtered = Array.from(files).filter(function(file) {
+                if (!accepted.length) return true;
+                var name = (file.name || '').toLowerCase();
+                return accepted.some(function(ext) { return name.endsWith(ext); });
+            });
+
+            if (!input.multiple && filtered.length > 1) {
+                return filtered.slice(0, 1);
+            }
+
+            return filtered;
+        }
+
+        function updateSelection(input, files) {
+            var transfer = new DataTransfer();
+            files.forEach(function(file) {
+                transfer.items.add(file);
+            });
+            input.files = transfer.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        wrappers.forEach(function(wrapper) {
+            var input = wrapper.querySelector('input[type="file"]');
+            if (!input) return;
+
+            var counter = 0;
+
+            function clearDragState() {
+                counter = 0;
+                wrapper.classList.remove('is-dragover');
+            }
+
+            wrapper.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                counter += 1;
+                wrapper.classList.add('is-dragover');
+            });
+
+            wrapper.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                wrapper.classList.add('is-dragover');
+            });
+
+            wrapper.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                if (e.target === wrapper || wrapper.contains(e.target)) {
+                    counter = Math.max(0, counter - 1);
+                    if (counter === 0) {
+                        wrapper.classList.remove('is-dragover');
+                    }
+                }
+            });
+
+            wrapper.addEventListener('drop', function(e) {
+                e.preventDefault();
+                clearDragState();
+
+                var files = filterFiles(e.dataTransfer.files || [], input);
+                if (!files.length) return;
+                updateSelection(input, files);
+            });
+
+            input.addEventListener('change', function() {
+                wrapper.classList.toggle('has-files', input.files && input.files.length > 0);
+            });
+        });
+    })();
+</script>
+</body>
+</html>

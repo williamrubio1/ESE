@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Conversor JSON → Excel{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📊 Conversor JSON → Excel</h1>
+    <p>Visualización rápida de archivos JSON en formato Excel sin transformaciones</p>
+</div>
+
+<div class="info-box" style="margin-bottom: 24px;">
+    <h3>💡 ¿Qué hace este módulo?</h3>
+    <p style="margin-bottom: 12px;">Este conversor toma uno o varios archivos JSON y los convierte directamente a Excel para visualización. NO aplica correcciones, validaciones ni sustituciones - solo muestra la información tal como está en el JSON.</p>
+    
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">¿Cuándo usar este conversor?</h4>
+    <ul>
+        <li><strong>Revisión rápida:</strong> Cuando necesitas ver el contenido de un JSON de forma legible</li>
+        <li><strong>Múltiples archivos:</strong> Puedes cargar varios JSON y consolidarlos en un solo Excel</li>
+        <li><strong>Sin modificaciones:</strong> Ideal cuando solo quieres visualizar sin aplicar reglas de negocio</li>
+        <li><strong>Comparación de datos:</strong> Útil para comparar información entre diferentes JSON</li>
+    </ul>
+    
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Características:</h4>
+    <ul>
+        <li><strong>Detección automática:</strong> Identifica si el JSON es de PYP, BC o Compuestos</li>
+        <li><strong>Soporte múltiple:</strong> Carga varios JSON y consolídalos en un solo Excel</li>
+        <li><strong>Hojas separadas:</strong> Cada tipo de servicio en su propia hoja (Usuarios, Consultas, Procedimientos, etc.)</li>
+        <li><strong>Sin transformaciones:</strong> Los datos se muestran exactamente como están en el JSON</li>
+        <li><strong>Columna de origen:</strong> Identifica de qué archivo proviene cada registro</li>
+    </ul>
+    
+    <p style="margin-top: 12px; padding: 12px; background: #fff3cd; border-radius: 4px; font-size: 0.9rem;">
+        <strong>⚠️ Importante:</strong> Este módulo NO aplica las validaciones de PYP, BC o Compuestos. Si necesitas procesamiento completo con correcciones y validaciones, usa los módulos correspondientes.
+    </p>
+</div>
+
+<div class="process-container">
+    <!-- Procesamiento de JSON -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">1</span>
+            <h2>Cargar Archivos JSON</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Carga uno o varios archivos JSON (.json) para convertirlos a Excel.
+                El sistema detectará automáticamente el tipo (PYP, BC o Compuestos) y organizará los datos en hojas separadas.
+                <br><strong>Tamaño máximo:</strong> 600MB por archivo.
+            </p>
+            <form id="uploadForm" method="POST" enctype="multipart/form-data" class="upload-form">
+                <div class="file-input-wrapper" data-drop-upload>
+                    <label for="json-files" class="file-label">
+                        <div class="file-drop-main">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Arrastra archivos JSON aquí</span>
+                        </div>
+                        <span class="file-drop-hint">o haz clic para buscarlos en tu equipo</span>
+                        <span id="json-filenames" class="file-drop-selected">Seleccionar archivos JSON</span>
+                    </label>
+                    <input type="file" id="json-files" name="files" accept=".json" multiple required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="convertBtn">
+                    📊 Convertir a Excel
+                </button>
+            </form>
+            
+            <div id="loading" style="display: none; text-align: center; margin-top: 20px;">
+                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                <p style="margin-top: 10px; color: #666;">Procesando archivos...</p>
+                <p style="margin-top: 5px; color: #999; font-size: 0.9em;">Archivos grandes pueden tardar varios minutos</p>
+            </div>
+            
+            <div id="successMessage" class="alert alert-success" style="display: none; margin-top: 20px;">
+                ✅ Archivos convertidos exitosamente. Descarga iniciada.
+            </div>
+            
+            <div id="errorMessage" class="alert alert-danger" style="display: none; margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <!-- Información sobre el conversor -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">ℹ️</span>
+            <h2>Características del Conversor</h2>
+        </div>
+        <div class="process-body">
+            <ul class="features-list">
+                <li><strong>Detección Automática:</strong> Identifica el tipo de JSON (PYP, BC, Compuestos) según la estructura de servicios</li>
+                <li><strong>Múltiples Archivos:</strong> Carga varios JSON simultáneamente y consolídalos en un solo Excel</li>
+                <li><strong>Visualización Pura:</strong> NO aplica correcciones, validaciones ni sustituciones de ningún tipo</li>
+                <li><strong>Hojas Organizadas:</strong> Cada tipo de servicio en su propia hoja para facilitar la navegación</li>
+                <li><strong>Origen Identificado:</strong> Columna "archivoOrigen" muestra de qué JSON proviene cada registro</li>
+            </ul>
+            
+            <div class="info-box" style="margin-top: 20px;">
+                <h3>📋 Hojas generadas según tipo</h3>
+                <p><strong>PYP:</strong></p>
+                <ul>
+                    <li>Usuarios, Consultas, Procedimientos</li>
+                </ul>
+                <p><strong>BC:</strong></p>
+                <ul>
+                    <li>Usuarios, Consultas, Procedimientos, Medicamentos, Otros Servicios, Urgencias, Hospitalización</li>
+                </ul>
+                <p><strong>Compuestos:</strong></p>
+                <ul>
+                    <li>Usuarios, Consultas, Procedimientos, Medicamentos, Otros Servicios, Urgencias, Hospitalización, Recién Nacidos</li>
+                </ul>
+            </div>
+            
+            <div class="info-box" style="margin-top: 20px; background: #fff3cd; border-left-color: #ffc107;">
+                <h3 style="color: #856404;">⚠️ Diferencias con otros módulos</h3>
+                <p>Este módulo es diferente a PYP/BC/Compuestos:</p>
+                <ul>
+                    <li><strong>NO corrige fechas</strong> según mes evaluado</li>
+                    <li><strong>NO completa documentos</strong> de profesionales</li>
+                    <li><strong>NO aplica sustituciones</strong> de diagnósticos o finalidades</li>
+                    <li><strong>NO valida códigos</strong> CUPS, CIE-10, ni otros estándares</li>
+                    <li><strong>NO genera reportes</strong> de cambios o validaciones</li>
+                </ul>
+                <p style="margin-top: 10px;"><strong>Usa este módulo solo para visualización.</strong> Para procesamiento completo, usa PYP, BC o Compuestos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.features-list {
+    list-style: none;
+    padding: 0;
+}
+
+.features-list li {
+    padding: 10px 0;
+    padding-left: 25px;
+    position: relative;
+    color: #555;
+}
+
+.features-list li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #28a745;
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.info-box {
+    background: #e7f3ff;
+    border-left: 4px solid #007bff;
+    padding: 15px 20px;
+    border-radius: 5px;
+}
+
+.info-box h3 {
+    margin-bottom: 10px;
+    color: #007bff;
+    font-size: 16px;
+}
+
+.info-box ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.info-box li {
+    margin: 5px 0;
+    color: #555;
+}
+</style>
+
+<script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('json-files');
+    const fileNamesSpan = document.getElementById('json-filenames');
+    const convertBtn = document.getElementById('convertBtn');
+    const loading = document.getElementById('loading');
+    const successMessage = document.getElementById('successMessage');
+    const errorMessage = document.getElementById('errorMessage');
+
+    // Actualizar nombre de archivos seleccionados
+    fileInput.addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (files.length === 0) {
+            fileNamesSpan.textContent = 'Seleccionar archivos JSON';
+        } else if (files.length === 1) {
+            fileNamesSpan.textContent = files[0].name;
+        } else {
+            fileNamesSpan.textContent = `${files.length} archivos seleccionados`;
+        }
+    });
+
+    // Submit del formulario
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const files = fileInput.files;
+        if (!files || files.length === 0) {
+            showError('Por favor selecciona al menos un archivo');
+            return;
+        }
+
+        // Validar extensión de todos los archivos
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (fileExtension !== '.json') {
+                showError(`❌ Archivo no válido: ${file.name}. Solo se permiten archivos .json`);
+                return;
+            }
+        }
+
+        // Mostrar loading
+        loading.style.display = 'block';
+        convertBtn.disabled = true;
+        hideAlerts();
+
+        // Crear FormData
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+
+        try {
+            const response = await fetch('/json-to-excel/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                // Leer respuesta como texto primero (solo se puede leer una vez)
+                let errorMessage = 'Error al procesar los archivos';
+                try {
+                    const responseText = await response.text();
+                    
+                    // Intentar parsear como JSON
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (jsonError) {
+                        // No es JSON válido, usar el texto directamente
+                        if (responseText.includes('<!doctype') || responseText.includes('<html')) {
+                            errorMessage = 'Error en el servidor. Por favor verifica la consola del servidor.';
+                        } else {
+                            errorMessage = responseText || errorMessage;
+                        }
+                    }
+                } catch (textError) {
+                    errorMessage = 'Error al leer la respuesta del servidor';
+                }
+                throw new Error(errorMessage);
+            }
+
+            // Descargar el archivo
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Obtener el nombre del archivo desde el header Content-Disposition
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'json_vista.xlsx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '');
+                }
+            }
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // Mostrar mensaje de éxito
+            showSuccess();
+
+            // Reset del formulario después de 2 segundos
+            setTimeout(() => {
+                uploadForm.reset();
+                fileNamesSpan.textContent = 'Seleccionar archivos JSON';
+                hideAlerts();
+            }, 3000);
+
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            loading.style.display = 'none';
+            convertBtn.disabled = false;
+        }
+    });
+
+    function showSuccess() {
+        successMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
+    }
+
+    function showError(message) {
+        errorMessage.textContent = '❌ ' + message;
+        errorMessage.style.display = 'block';
+        successMessage.style.display = 'none';
+    }
+
+    function hideAlerts() {
+        successMessage.style.display = 'none';
+        errorMessage.style.display = 'none';
+    }
+</script>
+{% endblock %}

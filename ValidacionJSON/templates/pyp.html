@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Validación PYM{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📋 Validación PYM (Promoción y Mantenimiento)</h1>
+    <p>Procesa archivos JSON de consultas médicas y procedimientos ambulatorios con validaciones automáticas</p>
+</div>
+
+<div class="info-box" style="margin-bottom: 24px;">
+    <h3>💡 ¿Qué hace este módulo?</h3>
+    <p style="margin-bottom: 12px;">Procesa archivos JSON de servicios PyP (Promoción y Mantenimiento), aplicando el <strong>Motor Lógico centralizado</strong> basado en la Ficha Técnica PyMS 2026 y las Resoluciones 2275/2023 y 3280/2018. Genera Excel editable y JSON reformado con todos los campos corregidos.</p>
+
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Jerarquía de reglas del Motor Lógico:</h4>
+    <ul>
+        <li><strong>Paso 0 — Filtro de contrato EPS:</strong> Solo procesa CUPS que hacen parte del contrato activo de la EPS seleccionada.</li>
+        <li><strong>Paso 0.5 — Categorías OVERRIDE (Ficha Técnica, autoritativo):</strong> Si el CUPS está clasificado en alguna de las siguientes categorías, se aplican finalidad/causa/CIE-10 fijos y se omiten todos los pasos siguientes:
+            <ul style="margin-top: 6px;">
+                <li><strong>VACUNA_PAI:</strong> BCG, DPT, Pentavalente, Polio, Hepatitis A, Varicela, Influenza, Rotavirus, VPH, SR, Triple Viral, TD → fin <code>14</code> · causa <code>40</code> · <code>Z279</code></li>
+                <li><strong>VACUNA_ESPECIAL:</strong> Meningococo, Rabia, SRP individuales → fin <code>14</code> · causa <code>40</code> · <code>Z279</code></li>
+                <li><strong>SALUD_ORAL_PE:</strong> Control placa (997002) <code>K021</code>, Flúor barniz (997106) <code>K003</code>, Sellantes (997107) <code>Z012</code>, Detartraje (997301) <code>K051</code> → fin <code>14</code> · causa <code>40</code></li>
+                <li><strong>EDUCACION_GRUPAL:</strong> 990101, 990103, 990104 → fin <code>42</code> · causa <code>41</code> · <code>Z718</code></li>
+                <li><strong>EDUCACION_INDIVIDUAL:</strong> 990201, 990203, 990204 → fin <code>40</code> · causa <code>40</code> · <code>Z718</code></li>
+                <li><strong>PLANIFICACION_FAMILIAR_PE:</strong> Inserción implante (861801) <code>Z301</code>, Retiro implante (861203) <code>Z305</code> → fin <code>14</code> · causa <code>40</code></li>
+                <li><strong>LAB_CARDIOMETABOLICO:</strong> Glucosa, colesterol HDL/LDL/total, creatinina, uroanálisis → fin <code>12</code> · causa <code>40</code> · <code>Z108</code></li>
+                <li><strong>DETECCION_TEMPRANA_GENERAL:</strong> Citología (892901) <code>Z124</code>, Hematocrito (902211) <code>Z003</code>, Sangre oculta (907008) <code>Z120</code> → fin <code>12</code> · causa <code>40</code></li>
+                <li><strong>RUTA_MATERNO_PERINATAL:</strong> Controles prenatales, pruebas sifilis/VIH (maternidad) → fin <code>23</code> · causa <code>42</code> · <code>Z340</code></li>
+                <li><strong>APOYO_DIAGNOSTICO:</strong> Laboratorios de morbilidad (sodio, examen fresco…) → fin <code>15</code> · causa <code>38</code></li>
+            </ul>
+        </li>
+        <li><strong>Pasos 1–6 — Clasificación CIE-10 (para CUPS no clasificados):</strong>
+            <ul style="margin-top: 6px;">
+                <li>Códigos <strong>Z34–Z35</strong> (prenatales) → fin 23 / causa 42</li>
+                <li>Códigos <strong>Z30</strong> (planificación) → fin 19 | <strong>Z31</strong> (fertilidad) → fin 22 | <strong>Z39</strong> (posparto) → fin 25</li>
+                <li>Códigos <strong>Z01</strong> (tamizaje) → fin 14 | <strong>Z00</strong>, Z71, Z76 (valoración) → fin 11</li>
+                <li>Finalidades 11–14: causa eliminada automáticamente</li>
+                <li>Finalidad 15 + trauma (S/T): causa corregida a rango 21–49</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Archivos generados:</h4>
+    <ul>
+        <li><strong>Excel:</strong> Hojas Usuarios, Consultas, Procedimientos con todos los campos RIPS</li>
+        <li><strong>JSON Reformado:</strong> Archivo corregido con finalidad, causa y CIE-10 actualizados, listo para carga</li>
+        <li><strong>Reporte de Cambios:</strong> Excel detallado con cada campo modificado, valor original y nuevo valor</li>
+    </ul>
+</div>
+
+<div class="process-container">
+    <!-- Procesamiento de JSON -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">1</span>
+            <h2>Cargar JSON</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Carga un archivo JSON para generar automáticamente el Excel y el JSON reformado.
+                Ambos archivos tendrán el mismo nombre que el JSON de entrada.
+            </p>
+            <form action="{{ url_for('pyp_procesar_json') }}" method="post" enctype="multipart/form-data" class="upload-form" id="pyp-form">
+                <div class="file-input-wrapper" data-drop-upload>
+                    <label for="json-file" class="file-label">
+                        <div class="file-drop-main">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Arrastra archivos JSON aquí</span>
+                        </div>
+                        <span class="file-drop-hint">o haz clic para buscarlos en tu equipo</span>
+                        <span id="json-filename" class="file-drop-selected">Seleccionar archivos JSON</span>
+                    </label>
+                    <input type="file" id="json-file" name="file" accept=".json" multiple required>
+                </div>
+                
+                <div class="form-group" style="margin-top: 16px;">
+                    <label for="eps-pyp" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">
+                        🏛️ EPS / Contrato: <span style="color: #e74c3c; font-weight: bold;">*</span>
+                    </label>
+                    <select id="eps-pyp" name="eps_id" class="form-select" required style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem;">
+                        <option value="">Seleccione una EPS</option>
+                        <option value="nueva_eps">Nueva EPS</option>
+                        <option value="caja_copi">Caja Copi</option>
+                    </select>
+                    <small style="display: block; margin-top: 4px; color: #666;">Define el contrato de CUPS que aplica para las validaciones</small>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label for="mes-evaluado" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">
+                        📅 Mes a evaluar: <span style="color: #e74c3c; font-weight: bold;">*</span>
+                    </label>
+                    <select id="mes-evaluado" name="mes_evaluado" class="form-select" required style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem;">
+                        <option value="">Seleccione un mes</option>
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                    <small style="display: block; margin-top: 4px; color: #666;">El mes debe corresponder al período de los servicios en el JSON</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block" id="btn-procesar-pyp" disabled>
+                    Procesar JSON
+                </button>
+            </form>
+            
+            <script>
+                // Habilitar botón solo si se selecciona archivo y mes
+                document.getElementById('json-file').addEventListener('change', function(e) {
+                    const files = e.target.files;
+                    const label = document.getElementById('json-filename');
+                    if (files.length > 1) {
+                        label.textContent = `${files.length} archivos seleccionados`;
+                    } else if (files.length === 1) {
+                        label.textContent = files[0].name;
+                    } else {
+                        label.textContent = 'Seleccionar archivos JSON';
+                    }
+                    validarFormPyp();
+                });
+                document.getElementById('mes-evaluado').addEventListener('change', validarFormPyp);
+                document.getElementById('eps-pyp').addEventListener('change', validarFormPyp);
+                
+                function validarFormPyp() {
+                    const archivo = document.getElementById('json-file').files.length > 0;
+                    const mes = document.getElementById('mes-evaluado').value !== '';
+                    const eps = document.getElementById('eps-pyp').value !== '';
+                    document.getElementById('btn-procesar-pyp').disabled = !(archivo && mes && eps);
+                }
+            </script>
+        </div>
+    </div>
+
+    {% if session.get('last_processed_file') and session.get('tipo') == 'pyp' %}
+    <!-- Separador visual -->
+    <div class="process-separator">
+        <div class="separator-line"></div>
+        <div class="separator-text">Archivos Generados</div>
+        <div class="separator-line"></div>
+    </div>
+
+    <!-- Descargas disponibles -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">2</span>
+            <h2>Descargar Archivos</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Archivos generados para: <strong>{{ session.get('last_processed_file') }}</strong>
+            </p>
+            <div class="download-buttons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                {% if session.get('excel_available') %}
+                <a href="{{ url_for('pyp_descargar_excel', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-secondary btn-block">
+                    📊 Excel Original
+                </a>
+                {% endif %}
+                
+                {% if session.get('excel_reformado_available') %}
+                <a href="{{ url_for('pyp_descargar_excel_reformado', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-primary btn-block">
+                    📊 Excel Reformado
+                </a>
+                {% endif %}
+                
+                {% if session.get('json_available') %}
+                <a href="{{ url_for('pyp_descargar_json', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-success btn-block">
+                    📄 JSON Reformado
+                </a>
+                {% endif %}
+                
+                {% if session.get('reporte_available') %}
+                <a href="{{ url_for('pyp_descargar_reporte', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-info btn-block">
+                    📋 Reporte de Cambios
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Separador visual -->
+    <div class="process-separator">
+        <div class="separator-line"></div>
+        <div class="separator-text">O también puedes</div>
+        <div class="separator-line"></div>
+    </div>
+</div>
+
+{% endblock %}

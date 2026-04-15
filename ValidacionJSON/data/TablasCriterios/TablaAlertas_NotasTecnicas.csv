@@ -1,0 +1,12 @@
+Alerta,CUPS_Afectado,Descripcion,Accion_Requerida
+CUPS NO CONTRATADO,907009 (SOMF),Tamizaje cáncer colon RPYMS88X/135X no está en cupsContratadosNEPS,Verificar contratación o gestión externa
+CUPS NO CONTRATADO,876802 (Mamografía bilateral),Tamizaje cáncer mama no está en cupsContratadosNEPS,Verificar contratación o gestión externa
+CUPS NO CONTRATADO,906611-906610 (PSA),Tamizaje próstata RPYMS87X/140X no está en cupsContratadosNEPS,Verificar contratación o gestión externa
+CUPS ACTUALIZADO,997310 → 997002,Profilaxis placa bacteriana — usar solo 997002 (nuevo),Actualizar todos los RIPS que traigan 997310
+CUPS ACTUALIZADO,997103 → 997106,Fluoruro en barniz — usar solo 997106 (nuevo),Actualizar todos los RIPS que traigan 997103
+EDAD INCORRECTA EN FICHA,RPYMS309X / RPYMS310X,Denominador dice "6 a 23 años" — debe ser "6 a 23 meses",Corregir en validación de RIPS — validar por meses no años
+FINALIDAD UNIFICADA,890201/890205/890301/890305,Res 2275/2023 unifica en finalidad 11 lo que antes era 4/5/7,Todo RIPS de valoración integral debe ir con finalidad 11
+CIE10 POR CURSO DE VIDA,890201/890301,Z001=Primera Infancia/Infancia; Z003=Adolescencia; Z108=Juventud/Adultez/Vejez,Asignar CIE10 según edad del paciente al momento de la consulta
+CAUSA EXTERNA DIFERENCIAL,Todos los CUPS PyP,Causa 40 para intervención individual; Causa 41 para grupal; Causa 42 para materno perinatal,Diligenciar según tipo de actividad
+CUPS SIN FINALIDAD PAI,993130 (Pentavalente),Está en CodigosPyp pero NO en cupsContratadosNEPS,Verificar si se factura con otro CUPS o si no está contratado
+MULTIRUTA - REGLA CLAVE,890201/890203/890205,Un mismo CUPS puede ir a varias rutas: la FINALIDAD y CIE-10 determinan la ruta correcta,Implementar regla de negocio por edad + finalidad + CIE10

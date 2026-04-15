@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}OCR Historia Clínica{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🔍 OCR Historia Clínica</h1>
+    <p class="subtitle">Extracción de texto de historias clínicas en formato PDF</p>
+</div>
+
+<div class="info-box">
+    <h3>📋 ¿Cómo funciona?</h3>
+    <ol>
+        <li>Selecciona uno o varios archivos PDF de historias clínicas</li>
+        <li>El sistema extrae automáticamente el texto de cada PDF</li>
+        <li>Identifica el identificador completo de historia clínica (ej: RC 101_______ -- Jo___ Ca____ Ro___ Lo____)</li>
+        <li>Genera un archivo .txt por cada HC con ese nombre como archivo</li>
+        <li>Descarga todos los archivos en un ZIP</li>
+    </ol>
+    
+    <h4 style="margin-top: 20px;">✨ Características:</h4>
+    <ul>
+        <li>✓ Procesamiento múltiple: Carga varios PDFs a la vez</li>
+        <li>✓ Limpieza automática: Elimina encabezados y datos estructurados iniciales</li>
+        <li>✓ Nombres inteligentes: Archivos nombrados según identificador completo de HC</li>
+        <li>✓ OCR avanzado: Utiliza PyMuPDF para extracción precisa</li>
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>📤 Subir Historias Clínicas (PDF)</h2>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('ocr_hcl_process') }}" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="pdf_files">Seleccionar archivos PDF:</label>
+                <div class="file-input-wrapper" data-drop-upload>
+                    <label for="pdf_files" class="file-label">
+                        <div class="file-drop-main">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Arrastra archivos PDF aquí</span>
+                        </div>
+                        <span class="file-drop-hint">o haz clic para buscarlos en tu equipo</span>
+                        <span id="pdf-filenames" class="file-drop-selected">Seleccionar archivos PDF</span>
+                    </label>
+                    <input type="file" id="pdf_files" name="pdf_files" accept=".pdf" multiple required>
+                </div>
+                <small class="form-text">Puedes seleccionar múltiples archivos PDF a la vez</small>
+            </div>
+            
+            <div id="file-list" class="file-preview" style="display: none; margin-top: 15px; padding: 15px; background-color: var(--gray-50); border-radius: 4px;">
+                <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--primary-color);">Archivos seleccionados:</h4>
+                <ul id="file-names" style="margin: 0; padding-left: 20px; font-size: 0.875rem;"></ul>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top: 20px;">
+                🚀 Procesar Historias Clínicas
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="info-box info-box-warning">
+    <h3>⚠️ Importante:</h3>
+    <ul>
+        <li>Solo se aceptan archivos en formato PDF</li>
+        <li>Los PDFs deben contener texto extraíble (no imágenes escaneadas sin OCR previo)</li>
+        <li>El sistema detecta automáticamente el identificador del campo "HISTORIA CLÍNICA No."</li>
+        <li>Formato esperado: "RC 101_______ -- NOMBRE COMPLETO"</li>
+        <li>Se elimina automáticamente la información estructurada inicial (datos personales)</li>
+        <li>Si no se detecta el identificador, el archivo se nombrará como "HC_DESCONOCIDA.txt"</li>
+    </ul>
+</div>
+
+<script>
+// Mostrar lista de archivos seleccionados
+document.getElementById('pdf_files').addEventListener('change', function(e) {
+    const fileList = document.getElementById('file-list');
+    const fileNames = document.getElementById('file-names');
+    const fileLabel = document.getElementById('pdf-filenames');
+    
+    if (this.files.length > 0) {
+        fileLabel.textContent = this.files.length === 1 ? this.files[0].name : `${this.files.length} archivos PDF seleccionados`;
+        fileNames.innerHTML = '';
+        for (let i = 0; i < this.files.length; i++) {
+            const li = document.createElement('li');
+            li.textContent = this.files[i].name;
+            fileNames.appendChild(li);
+        }
+        fileList.style.display = 'block';
+    } else {
+        fileLabel.textContent = 'Seleccionar archivos PDF';
+        fileList.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.file-preview ul {
+    list-style-type: disc;
+    color: var(--text-color);
+}
+
+.file-preview li {
+    margin: 5px 0;
+}
+
+.info-box-warning {
+    background-color: #fff3cd;
+    border-left: 4px solid var(--warning-color);
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Validación BC{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🏥 Validación Baja Complejidad</h1>
+    <p>Procesa archivos JSON de servicios de atención primaria y baja complejidad con reglas especiales</p>
+</div>
+
+<div class="info-box" style="margin-bottom: 24px;">
+    <h3>💡 ¿Qué hace este módulo?</h3>
+    <p style="margin-bottom: 12px;">Procesa servicios de morbilidad general, urgencias y hospitalización (Baja Complejidad). Aplica el <strong>Motor Lógico centralizado</strong>: los CUPS clasificados en <em>_CATEGORIAS_OVERRIDE</em> reciben finalidad/causa/CIE-10 autoritativos de la Ficha Técnica; el resto sigue las reglas clínicas BC.</p>
+
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Reglas Motor Lógico — Paso 0.5 OVERRIDE (igual que PYM):</h4>
+    <ul>
+        <li>Vacunas PAI/Especiales → fin <code>14</code> · <code>Z279</code> (nunca se sustituyen por Z718)</li>
+        <li>Labs cardiometabólicos → fin <code>12</code> · <code>Z108</code></li>
+        <li>Educación grupal → fin <code>42</code>/causa <code>41</code> · <code>Z718</code> | Individual → fin <code>40</code>/causa <code>40</code></li>
+        <li>Detección Temprana → fin <code>12</code> · CIE-10 por CUPS</li>
+        <li>Ruta Materna → fin <code>23</code> · causa <code>42</code> · <code>Z340</code></li>
+        <li>Apoyo Diagnóstico (sodio, examen fresco…) → fin <code>15</code> · causa <code>38</code></li>
+    </ul>
+
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Reglas específicas BC (para CUPS sin OVERRIDE):</h4>
+    <ul>
+        <li><strong>Unificación de documentos PPT → PT:</strong> Según norma vigente</li>
+        <li><strong>Corrección de fechas:</strong> Ajuste al mes evaluado si la fecha está fuera de rango</li>
+        <li><strong>Diagnósticos Z-PYP en campo BC</strong> (Z000, Z340, Z258, Z001, Z002…) → <code>Z718</code> <em>(excepto CUPS con OVERRIDE)</em></li>
+        <li><strong>Consultas sin diagnóstico:</strong> <code>Z719</code> · fin <code>11</code> · causa <code>40</code></li>
+        <li><strong>Consultas con diagnóstico válido:</strong> fin <code>11</code> <em>(morbilidad general)</em>; traumas S/T/W → causa <code>26</code> | Y050 → causa <code>32</code></li>
+        <li><strong>Procedimientos sin diagnóstico:</strong> <code>Z018</code> · fin <code>15</code></li>
+        <li><strong>Procedimientos 5DS*/865*:</strong> fin <code>16</code> (actividad diagnóstica especializada)</li>
+        <li><strong>Complemento profesionales:</strong> 4 niveles de búsqueda contextual + archivo histórico</li>
+        <li><strong>Truncamiento CIE-10:</strong> Diagnósticos reducidos a 4 caracteres</li>
+    </ul>
+
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">Archivos generados:</h4>
+    <ul>
+        <li><strong>Excel Original:</strong> Tabla única con todos los servicios para revisión</li>
+        <li><strong>Excel Reformado:</strong> Con todas las validaciones y correcciones aplicadas</li>
+        <li><strong>JSON Reformado:</strong> Archivo corregido listo para carga en el sistema</li>
+        <li><strong>Reporte de Cambios Completo:</strong> Documento Excel detallado con <strong>todos los cambios</strong> en fechas, documentos de identificación y diagnósticos de <strong>todos los servicios</strong>: <em>consultas, procedimientos, medicamentos, otros servicios, urgencias y hospitalización</em>. Incluye columna “Fuente” que indica el origen de cada asignación de documento profesional.</li>
+    </ul>
+</div>
+
+<div class="process-container">
+    <!-- Procesamiento de JSON -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">1</span>
+            <h2>Cargar JSON</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Carga un archivo JSON para generar automáticamente el Excel y el JSON reformado.
+                Ambos archivos tendrán el mismo nombre que el JSON de entrada.
+            </p>
+            <form action="{{ url_for('bc_procesar_json') }}" method="post" enctype="multipart/form-data" class="upload-form" id="bc-form">
+                <div class="file-input-wrapper" data-drop-upload>
+                    <label for="json-file-bc" class="file-label">
+                        <div class="file-drop-main">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <span>Arrastra archivos JSON aquí</span>
+                        </div>
+                        <span class="file-drop-hint">o haz clic para buscarlos en tu equipo</span>
+                        <span id="json-filename-bc" class="file-drop-selected">Seleccionar archivos JSON</span>
+                    </label>
+                    <input type="file" id="json-file-bc" name="file" accept=".json" multiple required>
+                </div>
+                
+                <div class="form-group" style="margin-top: 16px;">
+                    <label for="eps-bc" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">
+                        🏛️ EPS / Contrato: <span style="color: #e74c3c; font-weight: bold;">*</span>
+                    </label>
+                    <select id="eps-bc" name="eps_id" class="form-select" required style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem;">
+                        <option value="">Seleccione una EPS</option>
+                        <option value="nueva_eps">Nueva EPS</option>
+                        <option value="caja_copi">Caja Copi</option>
+                    </select>
+                    <small style="display: block; margin-top: 4px; color: #666;">Define el contrato de CUPS que aplica para las validaciones</small>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label for="mes-evaluado-bc" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color);">
+                        📅 Mes a evaluar: <span style="color: #e74c3c; font-weight: bold;">*</span>
+                    </label>
+                    <select id="mes-evaluado-bc" name="mes_evaluado" class="form-select" required style="width: 100%; padding: 10px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem;">
+                        <option value="">Seleccione un mes</option>
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                    <small style="display: block; margin-top: 4px; color: #666;">El mes debe corresponder al período de los servicios en el JSON</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block" id="btn-procesar-bc" disabled>
+                    Procesar JSON
+                </button>
+            </form>
+            
+            <script>
+                // Habilitar botón solo si se selecciona archivo y mes
+                document.getElementById('json-file-bc').addEventListener('change', function(e) {
+                    const files = e.target.files;
+                    const label = document.getElementById('json-filename-bc');
+                    if (files.length > 1) {
+                        label.textContent = `${files.length} archivos seleccionados`;
+                    } else if (files.length === 1) {
+                        label.textContent = files[0].name;
+                    } else {
+                        label.textContent = 'Seleccionar archivos JSON';
+                    }
+                    validarFormBc();
+                });
+                document.getElementById('mes-evaluado-bc').addEventListener('change', validarFormBc);
+                document.getElementById('eps-bc').addEventListener('change', validarFormBc);
+                
+                function validarFormBc() {
+                    const archivo = document.getElementById('json-file-bc').files.length > 0;
+                    const mes = document.getElementById('mes-evaluado-bc').value !== '';
+                    const eps = document.getElementById('eps-bc').value !== '';
+                    document.getElementById('btn-procesar-bc').disabled = !(archivo && mes && eps);
+                }
+            </script>
+        </div>
+    </div>
+
+    {% if session.get('last_processed_file') and session.get('tipo') == 'bc' %}
+    <!-- Separador visual -->
+    <div class="process-separator">
+        <div class="separator-line"></div>
+        <div class="separator-text">Archivos Generados</div>
+        <div class="separator-line"></div>
+    </div>
+
+    <!-- Descargas disponibles -->
+    <div class="process-card">
+        <div class="process-header">
+            <span class="process-number">2</span>
+            <h2>Descargar Archivos</h2>
+        </div>
+        <div class="process-body">
+            <p class="process-description">
+                Archivos generados para: <strong>{{ session.get('last_processed_file') }}</strong>
+            </p>
+            <div class="download-buttons" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                {% if session.get('excel_available') %}
+                <a href="{{ url_for('bc_descargar_excel', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-secondary btn-block">
+                    📊 Excel Original
+                </a>
+                {% endif %}
+                
+                {% if session.get('excel_reformado_available') %}
+                <a href="{{ url_for('bc_descargar_excel_reformado', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-primary btn-block">
+                    📊 Excel Reformado
+                </a>
+                {% endif %}
+                
+                {% if session.get('json_available') %}
+                <a href="{{ url_for('bc_descargar_json', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-success btn-block">
+                    📄 JSON Reformado
+                </a>
+                {% endif %}
+                
+                {% if session.get('reporte_available') %}
+                <a href="{{ url_for('bc_descargar_reporte', filename=session.get('last_processed_file')) }}" 
+                   class="btn btn-info btn-block">
+                    📋 Reporte de Cambios
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Separador visual -->
+    <div class="process-separator">
+        <div class="separator-line"></div>
+        <div class="separator-text">O también puedes</div>
+        <div class="separator-line"></div>
+    </div>
+</div>
+
+<div class="info-box">
+    <h3>📊 Reporte de Cambios Integral</h3>
+    <p style="margin-bottom: 12px;">El reporte de cambios generado incluye un análisis detallado de todas las modificaciones realizadas en <strong>todos los servicios procesados</strong>:</p>
+    <ul>
+        <li><strong>Servicios cubiertos:</strong> Consultas, Procedimientos, Medicamentos, Otros Servicios, Urgencias y Hospitalización</li>
+        <li><strong>Fechas Corregidas:</strong> Lista todas las correcciones de fechas con valores antes/después</li>
+        <li><strong>Documentos Completados:</strong> Muestra documentos de identificación completados con columna "Fuente" indicando:
+            <ul style="margin-top: 8px;">
+                <li>Nivel 1: Mismo usuario + prestador + servicio</li>
+                <li>Nivel 2: Mismo usuario + prestador</li>
+                <li>Nivel 3: Mismo usuario, cualquier prestador</li>
+                <li>Nivel 4: Archivo histórico de especialistas</li>
+            </ul>
+        </li>
+        <li><strong>Hoja Resumen:</strong> Estadísticas totales de cambios realizados</li>
+    </ul>
+</div>
+
+{% endblock %}

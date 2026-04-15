@@ -1,0 +1,764 @@
+{% extends "base.html" %}
+
+{% block title %}Consolidador RIPS{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🔗 Consolidador de Facturas RIPS</h1>
+    <p>Une múltiples archivos JSON RIPS en un único documento consolidado, respetando la estructura de la Resolución 3280 de 2018</p>
+</div>
+
+<div class="info-box" style="margin-bottom: 24px;">
+    <h3>💡 ¿Qué hace este módulo?</h3>
+    <p style="margin-bottom: 12px;">
+        Toma dos o más archivos JSON RIPS y los fusiona en un único documento, agrupando los servicios de cada paciente
+        por <code>codPrestador</code>. El encabezado del documento consolidado se toma de la primera factura.
+    </p>
+    <h4 style="color: var(--primary-color); margin-top: 16px; margin-bottom: 8px; font-size: 1rem;">¿Cómo funciona?</h4>
+    <ul>
+        <li><strong>Agrupa por prestador:</strong> Los servicios de cada usuario se organizan por <code>codPrestador</code></li>
+        <li><strong>Fusiona usuarios:</strong> Todos los usuarios de todas las facturas se incluyen en el documento final</li>
+        <li><strong>Reasigna consecutivos:</strong> Los consecutivos se renumeran de forma global</li>
+        <li><strong>Mantiene la estructura RIPS:</strong> Formato compacto y sangría según la Resolución 3280</li>
+        <li><strong>Nombre del resultado:</strong> <code>facturas_consolidadas.json</code></li>
+    </ul>
+    <p style="margin-top: 12px; padding: 12px; background: #e7f3ff; border-radius: 4px; font-size: 0.9rem;">
+        <strong>📌 Requisito:</strong> Se necesitan al menos <strong>2 archivos JSON</strong> para consolidar.
+        Puedes seleccionarlos haciendo clic en el área de carga o arrastrandolos directamente.
+    </p>
+</div>
+
+<!-- Formulario de carga -->
+<div class="card">
+    <div class="card-header">
+        <h2>Cargar Archivos JSON</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('consolidador_consolidar') }}" enctype="multipart/form-data" id="consolidarForm">
+
+            <!-- Zona de arrastre -->
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-content">
+                    <div class="drop-zone-icon">📂</div>
+                    <p class="drop-zone-title">Arrastra aquí tus archivos JSON</p>
+                    <p class="drop-zone-subtitle">o usa el botón para buscarlos en tu equipo</p>
+                    <div class="drop-zone-actions">
+                        <button type="button" class="btn btn-primary" id="browseBtn">
+                            🔍 Buscar archivos
+                        </button>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" name="files" accept=".json" multiple style="display:none;">
+            </div>
+
+            <!-- Lista de archivos seleccionados -->
+            <div id="fileListContainer" style="display:none; margin-top: 20px;">
+                <div class="file-list-header">
+                    <h4>📋 Archivos seleccionados (<span id="fileCount">0</span>)</h4>
+                    <button type="button" class="btn btn-sm btn-outline" id="clearAllBtn">🗑️ Limpiar todo</button>
+                </div>
+                <div id="fileList" class="file-list"></div>
+                <p id="fileCountWarning" class="file-warning" style="display:none;">
+                    ⚠️ Se necesitan al menos 2 archivos para consolidar.
+                </p>
+            </div>
+
+            <div class="action-buttons" style="margin-top: 24px;">
+
+                <!-- Selector de modo de agrupación -->
+                <div class="modo-selector" style="margin-bottom: 20px;">
+                    <label style="font-weight:600; display:block; margin-bottom:10px;">Modo de agrupación:</label>
+                    <div class="modo-options">
+                        <label class="modo-option">
+                            <input type="radio" name="modo" value="usuario" checked>
+                            <span class="modo-label">
+                                <strong>Por Usuario</strong>
+                                <small>Un único JSON. Registros del mismo paciente (<code>numDocumentoIdentificacion</code>) se fusionan en uno solo.</small>
+                            </span>
+                        </label>
+                        <label class="modo-option">
+                            <input type="radio" name="modo" value="prestador">
+                            <span class="modo-label">
+                                <strong>Por Prestador</strong>
+                                <small>Un JSON por <code>codPrestador</code>, empaquetados en un ZIP. Permite separar la información por IPS/proveedor.</small>
+                            </span>
+                        </label>
+                        <label class="modo-option">
+                            <input type="radio" name="modo" value="ambos">
+                            <span class="modo-label">
+                                <strong>Ambos</strong>
+                                <small>Primero fusiona pacientes duplicados y luego genera un JSON por <code>codPrestador</code> (ZIP).</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg" id="processBtn" disabled>
+                    🔗 Consolidar Archivos
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resultados -->
+{% if estadisticas %}
+<div class="card result-card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2>Resultado de la Consolidación</h2>
+    </div>
+    <div class="card-body">
+
+        <!-- Estadísticas globales -->
+        <div class="summary-stats">
+            <div class="stat-item">
+                <div class="stat-value">{{ estadisticas.archivos_procesados }}</div>
+                <div class="stat-label">Archivos procesados</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ "{:,}".format(estadisticas.total_usuarios) }}</div>
+                <div class="stat-label">{% if estadisticas.modo == 'usuario' or estadisticas.modo == 'ambos' %}Usuarios únicos{% else %}Total Usuarios{% endif %}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ "{:,}".format(estadisticas.total_servicios) }}</div>
+                <div class="stat-label">Total Servicios</div>
+            </div>
+            {% if estadisticas.prestadores %}
+            <div class="stat-item">
+                <div class="stat-value">{{ estadisticas.prestadores | length }}</div>
+                <div class="stat-label">Prestadores</div>
+            </div>
+            {% endif %}
+            {% if estadisticas.archivos_error %}
+            <div class="stat-item stat-error">
+                <div class="stat-value">{{ estadisticas.archivos_error | length }}</div>
+                <div class="stat-label">Con error</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Descarga -->
+        {% if archivo_resultado %}
+        <div class="download-section" style="margin-top: 24px;">
+            {% if archivo_resultado.endswith('.zip') %}
+            <h3 class="download-title">📦 Archivo ZIP Listo</h3>
+            <p class="download-description">
+                Se generaron <strong>{{ estadisticas.prestadores | length }}</strong> archivos JSON (uno por prestador)
+                empaquetados en <strong>{{ archivo_resultado }}</strong>.
+                {% if estadisticas.prestadores %}
+                <br><small style="color:#666;">Prestadores incluidos: {{ estadisticas.prestadores | join(', ') }}{% if estadisticas.prestadores | length == 50 %}&hellip;{% endif %}</small>
+                {% endif %}
+            </p>
+            <a href="{{ url_for('consolidador_descargar') }}" class="btn btn-success btn-xl">
+                ⬇️ Descargar {{ archivo_resultado }}
+            </a>
+            {% else %}
+            <h3 class="download-title">📄 Archivo Consolidado Listo</h3>
+            <p class="download-description">El archivo <strong>{{ archivo_resultado }}</strong> ha sido generado y está listo para descargar.</p>
+            <a href="{{ url_for('consolidador_descargar') }}" class="btn btn-success btn-xl">
+                ⬇️ Descargar {{ archivo_resultado }}
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Detalle por archivo -->
+        {% if estadisticas.detalle_truncado %}
+        <div class="alert alert-info" style="margin-top: 28px; padding: 12px 16px; background: #e8f4fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+            ℹ️ El detalle por archivo no se muestra porque la consolidación procesó más de 100 archivos. El resultado consolidado está disponible para descargar.
+        </div>
+        {% elif estadisticas.detalle %}
+        <div class="table-container" style="margin-top: 28px;">
+            <h3>Detalle por Archivo</h3>
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Usuarios</th>
+                        <th>Servicios</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in estadisticas.detalle %}
+                    <tr class="{% if 'ERROR' in item.estado %}row-error{% endif %}">
+                        <td class="archivo-cell">{{ item.archivo }}</td>
+                        <td class="numero-cell">{{ "{:,}".format(item.usuarios) }}</td>
+                        <td class="numero-cell">{{ "{:,}".format(item.servicios) }}</td>
+                        <td class="estado-cell {% if item.estado == 'OK' %}estado-ok{% else %}estado-error{% endif %}">
+                            {% if item.estado == 'OK' %}✅ OK{% else %}❌ {{ item.estado }}{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>TOTAL</strong></td>
+                        <td class="numero-cell"><strong>{{ "{:,}".format(estadisticas.total_usuarios) }}</strong></td>
+                        <td class="numero-cell"><strong>{{ "{:,}".format(estadisticas.total_servicios) }}</strong></td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Sección informativa -->
+<div class="info-section" style="margin-top: 32px;">
+    <h2>¿Cómo funciona?</h2>
+    <div class="steps">
+        <div class="step">
+            <div class="step-number">1</div>
+            <h3>Carga los JSON</h3>
+            <p>Arrastra o busca los archivos JSON RIPS que deseas consolidar (mínimo 2)</p>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <h3>Consolidación</h3>
+            <p>El sistema fusiona los usuarios y agrupa sus servicios por <code>codPrestador</code></p>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <h3>Descarga</h3>
+            <p>Obtienes un único archivo <code>facturas_consolidadas.json</code> con toda la información</p>
+        </div>
+    </div>
+
+    <div class="features-box">
+        <h3>Características:</h3>
+        <ul class="features-list">
+            <li>✅ Acepta cualquier número de archivos JSON RIPS</li>
+            <li>✅ Arrastra y suelta o busca con el explorador de archivos</li>
+            <li>✅ Agrupa servicios por codPrestador antes de consolidar</li>
+            <li>✅ Reasigna consecutivos globales correctamente</li>
+            <li>✅ Respeta la estructura y formato de la Resolución 3280 de 2018</li>
+            <li>✅ Muestra estadísticas detalladas por archivo procesado</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+/* ---- Modo Selector ---- */
+.modo-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.modo-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: #fafafa;
+}
+.modo-option:has(input:checked) {
+    border-color: var(--primary-color, #1976D2);
+    background: #e8f0fe;
+}
+.modo-option input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--primary-color, #1976D2);
+    flex-shrink: 0;
+}
+.modo-label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.modo-label strong {
+    font-size: 0.95rem;
+}
+.modo-label small {
+    color: #555;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+/* ---- Drop Zone ---- */
+.drop-zone {
+    border: 2px dashed var(--accent-color);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8eef7 100%);
+    transition: border-color 0.25s, background 0.25s;
+    cursor: pointer;
+    position: relative;
+}
+
+.drop-zone.drag-over {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+}
+
+.drop-zone-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+}
+
+.drop-zone-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 6px;
+}
+
+.drop-zone-subtitle {
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    margin-bottom: 18px;
+}
+
+.drop-zone-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* ---- File List ---- */
+.file-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.file-list-header h4 {
+    margin: 0;
+    color: var(--primary-color);
+    font-size: 1rem;
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    transition: box-shadow 0.2s;
+}
+
+.file-item:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.file-item-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.file-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-item-name {
+    font-weight: 500;
+    font-size: 0.92rem;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-item-size {
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    margin-top: 2px;
+}
+
+.file-item-remove {
+    background: none;
+    border: none;
+    color: var(--error-color);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.file-item-remove:hover {
+    background: #fdecea;
+}
+
+.file-warning {
+    color: var(--warning-color);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    font-weight: 500;
+}
+
+/* ---- Btn sm / outline ---- */
+.btn-sm {
+    padding: 5px 12px;
+    font-size: 0.83rem;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--gray-300);
+    color: var(--gray-600);
+}
+
+.btn-outline:hover {
+    background: var(--gray-100);
+    color: var(--text-color);
+}
+
+/* ---- Action Buttons ---- */
+.action-buttons {
+    text-align: center;
+}
+
+.action-buttons .btn {
+    min-width: 260px;
+}
+
+/* ---- Summary Stats ---- */
+.summary-stats {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 24px 20px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border-radius: 10px;
+    color: white;
+}
+
+.stat-item {
+    text-align: center;
+    min-width: 100px;
+}
+
+.stat-value {
+    font-size: 2.4rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.stat-error .stat-value {
+    color: #ffcdd2;
+}
+
+/* ---- Download Section ---- */
+.download-section {
+    text-align: center;
+    padding: 28px 20px;
+    background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.download-title {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    color: white;
+}
+
+.download-description {
+    font-size: 0.95rem;
+    margin-bottom: 20px;
+    opacity: 0.95;
+}
+
+.btn-xl {
+    font-size: 1.2rem;
+    padding: 16px 44px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    transition: all 0.3s;
+}
+
+.btn-xl:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+}
+
+.btn-lg {
+    font-size: 1.15rem;
+    padding: 13px 28px;
+}
+
+/* ---- Table ---- */
+.table-container {
+    overflow-x: auto;
+}
+
+.table-container h3 {
+    margin-bottom: 14px;
+    color: var(--primary-color);
+}
+
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.07);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.result-table th {
+    background: var(--primary-color);
+    color: white;
+    padding: 11px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.result-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--gray-200);
+    font-size: 0.9rem;
+}
+
+.result-table tbody tr:hover {
+    background-color: var(--gray-50);
+}
+
+.archivo-cell {
+    font-family: 'Courier New', monospace;
+    color: var(--secondary-color);
+    font-weight: 500;
+}
+
+.numero-cell {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+}
+
+.estado-cell { font-weight: 500; }
+.estado-ok    { color: var(--success-color); }
+.estado-error { color: var(--error-color); font-size: 0.82rem; }
+
+.row-error td { background: #fff5f5; }
+
+.total-row td {
+    border-top: 2px solid var(--primary-color);
+    background: var(--gray-100);
+    padding: 11px 14px;
+}
+
+/* ---- Info Section ---- */
+.features-box {
+    background: var(--gray-50);
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    border: 1px solid var(--gray-200);
+}
+
+.features-box h3 {
+    color: var(--primary-color);
+    margin-bottom: 14px;
+}
+
+.features-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.features-list li {
+    padding: 6px 0;
+    color: var(--gray-800);
+    font-size: 0.92rem;
+}
+
+code {
+    background: var(--gray-100);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.88em;
+    color: var(--primary-dark);
+}
+</style>
+
+<script>
+(function () {
+    const dropZone       = document.getElementById('dropZone');
+    const fileInput      = document.getElementById('fileInput');
+    const browseBtn      = document.getElementById('browseBtn');
+    const fileList       = document.getElementById('fileList');
+    const fileListCont   = document.getElementById('fileListContainer');
+    const fileCount      = document.getElementById('fileCount');
+    const clearAllBtn    = document.getElementById('clearAllBtn');
+    const processBtn     = document.getElementById('processBtn');
+    const fileCountWarn  = document.getElementById('fileCountWarning');
+    const form           = document.getElementById('consolidarForm');
+
+    // DataTransfer para manejar la lista de archivos manualmente
+    let selectedFiles = [];
+
+    // ── Abrir explorador al pulsar el botón o la zona ──
+    browseBtn.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => {
+        if (e.target === dropZone || e.target.closest('.drop-zone-content')) {
+            if (e.target !== browseBtn) fileInput.click();
+        }
+    });
+
+    // ── Selección desde el input ──
+    fileInput.addEventListener('change', function () {
+        addFiles(Array.from(this.files));
+        this.value = ''; // Reset para poder volver a seleccionar el mismo archivo
+    });
+
+    // ── Drag & Drop ──
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.json'));
+        if (droppedFiles.length === 0) {
+            showToastLocal('Solo se aceptan archivos .json', 'error');
+            return;
+        }
+        addFiles(droppedFiles);
+    });
+
+    // ── Limpiar todo ──
+    clearAllBtn.addEventListener('click', () => {
+        selectedFiles = [];
+        renderFileList();
+        updateState();
+    });
+
+    // ── Agregar archivos (sin duplicados por nombre) ──
+    function addFiles(newFiles) {
+        const existingNames = new Set(selectedFiles.map(f => f.name));
+        const toAdd = newFiles.filter(f => f.name.toLowerCase().endsWith('.json') && !existingNames.has(f.name));
+        const duplicates = newFiles.filter(f => existingNames.has(f.name));
+        if (duplicates.length > 0) {
+            showToastLocal('Archivos duplicados ignorados: ' + duplicates.map(f => f.name).join(', '), 'warning');
+        }
+        selectedFiles = selectedFiles.concat(toAdd);
+        renderFileList();
+        updateState();
+    }
+
+    // ── Renderizar lista de archivos ──
+    const MAX_VISIBLE_FILES = 150;
+
+    function renderFileList() {
+        fileList.innerHTML = '';
+        const total = selectedFiles.length;
+        const visible = selectedFiles.slice(0, MAX_VISIBLE_FILES);
+
+        visible.forEach((file, idx) => {
+            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `
+                <span class="file-item-icon">📄</span>
+                <div class="file-item-info">
+                    <div class="file-item-name" title="${file.name}">${file.name}</div>
+                    <div class="file-item-size">${sizeMB} MB</div>
+                </div>
+                <button type="button" class="file-item-remove" data-idx="${idx}" title="Eliminar este archivo">✕</button>
+            `;
+            fileList.appendChild(item);
+        });
+
+        if (total > MAX_VISIBLE_FILES) {
+            const notice = document.createElement('div');
+            notice.className = 'file-item';
+            notice.style.cssText = 'justify-content:center; color:#666; font-style:italic;';
+            notice.textContent = `… y ${total - MAX_VISIBLE_FILES} archivos más (solo se muestran los primeros ${MAX_VISIBLE_FILES})`;
+            fileList.appendChild(notice);
+        }
+
+        // Eventos de eliminación
+        fileList.querySelectorAll('.file-item-remove').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const idx = parseInt(this.getAttribute('data-idx'));
+                selectedFiles.splice(idx, 1);
+                renderFileList();
+                updateState();
+            });
+        });
+    }
+
+    // ── Actualizar estado del botón y mensaje ──
+    function updateState() {
+        const count = selectedFiles.length;
+        fileCount.textContent = count;
+
+        if (count > 0) {
+            fileListCont.style.display = 'block';
+        } else {
+            fileListCont.style.display = 'none';
+        }
+
+        if (count < 2 && count > 0) {
+            fileCountWarn.style.display = 'block';
+        } else {
+            fileCountWarn.style.display = 'none';
+        }
+
+        processBtn.disabled = count < 2;
+    }
+
+    // ── Inyectar los archivos en el formulario antes de enviarlo ──
+    form.addEventListener('submit', function (e) {
+        if (selectedFiles.length < 2) {
+            e.preventDefault();
+            showToastLocal('Añade al menos 2 archivos JSON para consolidar.', 'error');
+            return;
+        }
+
+        // Crear un DataTransfer con los archivos seleccionados
+        const dt = new DataTransfer();
+        selectedFiles.forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
+    });
+
+    // ── Toast local simple ──
+    function showToastLocal(msg, type) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'toast toast-' + (type || 'info');
+        el.innerHTML = '<strong>' + (type === 'error' ? '✖' : '⚠') + '</strong> ' + msg;
+        container.appendChild(el);
+        setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 600); }, 5000);
+    }
+
+    // Inicializar estado
+    updateState();
+})();
+</script>
+{% endblock %}

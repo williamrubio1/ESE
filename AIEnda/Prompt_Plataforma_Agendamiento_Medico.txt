@@ -1,0 +1,150 @@
+
+Plataforma de Agendamiento Médico - Especificaciones Técnicas - Nombre: Agenda
+=============================================================
+
+1. 🎯 Objetivo del Proyecto
+---------------------------
+Desarrollar una plataforma web para el agendamiento de citas médicas que sea segura, auditable, escalable y multicanal. Debe soportar miles de usuarios simultáneos y permitir integraciones externas como WhatsApp y n8n.
+
+2. 🖥️ Frontend (React)
+-----------------------
+- Interfaces diferenciadas por rol:
+  - Paciente: agendar, cancelar, reagendar (solo general), ver histórico.
+  - Médico: dashboard semanal/mensual, detalle diario, marcar asistencia, observaciones.
+  - Administrador: gestión de médicos, usuarios, sedes, disponibilidad, reportes.
+  - Recepción: confirmar llegada, reagendar manualmente.
+    * El reagendamiento se realiza en una única pantalla compacta y jerárquica:
+      1. Buscar paciente o cita activa (por nombre, ID o fecha).
+      2. Ver detalle de la cita actual.
+      3. Seleccionar nuevo médico (filtrable por especialidad) y nuevo horario disponible
+         en la misma pantalla, sin navegación adicional.
+      4. Confirmar con un botón destacado. Sin pasos separados ni cambio de pantalla.
+
+- Validaciones de formularios:
+  - Campos numéricos: solo números.
+  - Campos de texto: solo texto.
+  - Teléfonos: lista desplegable con indicativo de país.
+  - Correos: formato estricto de email.
+
+- Estética clara y funcional con calendarios interactivos y dashboards visuales.
+
+3. ⚙️ Backend (Node.js + Express)
+---------------------------------
+- Autenticación:
+  - Usuario = ID.
+  - Contraseña inicial = fecha de nacimiento (ddmmyyyy), almacenada en texto plano en la base de datos.
+    * Esto permite consultarla, modificarla directamente desde el gestor de BD o de forma remota,
+      y reportársela al usuario cuando lo requiera (ej. desde soporte o desde la plataforma).
+    * En el primer inicio de sesión, el sistema debe forzar el cambio de contraseña.
+    * NOTA: Esta decisión implica que la seguridad de la BD es crítica; debe estar protegida
+      por credenciales fuertes, acceso restringido por IP y conexión cifrada (SSL/TLS).
+  - Recuperación de contraseña:
+    * Fase inicial: flujo por correo electrónico (enlace/token con expiración).
+    * Arquitectura abierta para incorporar recuperación vía WhatsApp y n8n en fases futuras.
+      El canal de recuperación debe ser configurable por parámetro, no hardcodeado.
+  - Roles: Paciente, Médico, Administrador, Recepción.
+
+- Módulos principales:
+  - Agendamiento: lógica de disponibilidad, turnos encadenados de 20 minutos.
+    * Política de cancelación: una cita solo puede cancelarse con al menos 12 horas de anticipación.
+      Si quedan menos de 12 horas para la cita, el sistema debe bloquear la cancelación e informar al usuario.
+    * Locking transaccional (SELECT ... FOR UPDATE en MySQL) para evitar race conditions al reservar un turno.
+  - Notificaciones: envío por SMS, correo y WhatsApp (vía n8n).
+    * Arquitectura desacoplada: el canal de notificación debe ser configurable, para facilitar
+      la incorporación de nuevos canales (WhatsApp, n8n, push) sin modificar la lógica central.
+  - Gestión de usuarios/médicos: creación, suspensión, asignación de citas.
+  - Reportes: generados dinámicamente mediante queries; no se persisten en tabla propia.
+    Exportación CSV/PDF con métricas de ocupación, inasistencias y cancelaciones.
+  - Caché con Redis:
+    * La disponibilidad de médicos (horarios, turnos libres) se cachea en Redis para reducir
+      carga en MySQL ante alta concurrencia.
+    * TTL (tiempo de vida) corto (ej. 1-2 minutos) para mantener consistencia.
+    * Invalidación automática del caché al modificar disponibilidad o confirmar/cancelar una cita.
+
+- Validación de entradas en el servidor:
+  - Usar `express-validator` para validar y sanear todos los datos recibidos en los endpoints.
+  - Las validaciones del frontend son complementarias; la validación definitiva ocurre en el servidor.
+
+- Rate limiting y protección de endpoints:
+  - Máximo 5 intentos de login fallidos por usuario.
+  - Tras el 5.° intento fallido, el usuario queda bloqueado 10 minutos (bloqueo por ID de usuario, no por IP).
+  - El bloqueo y el conteo de intentos se gestionan en Redis para persistencia y eficiencia.
+
+- Seguridad de la base de datos:
+  - Solo el administrador del host y del gestor de BD tiene privilegios de administrador en MySQL.
+  - La aplicación Node.js se conecta con un usuario MySQL de permisos mínimos (solo las operaciones necesarias).
+  - Las integraciones externas (WhatsApp, n8n) acceden a los datos exclusivamente a través de la API REST
+    con autenticación por JWT (token con expiración), nunca con conexión directa a la base de datos.
+  - Se recomienda usar `helmet` (Express) para establecer cabeceras HTTP de seguridad y
+    `express-rate-limit` como middleware adicional de protección general de la API.
+  - Zona horaria del sistema: **América/Bogotá (GMT-5)**. Toda fecha y hora almacenada en MySQL
+    y calculada en el servidor debe operar en esta zona horaria. Configurar explícitamente
+    `time_zone = '-05:00'` en la conexión MySQL y `process.env.TZ = 'America/Bogota'` en Node.js.
+
+- Conexión a base de datos:
+  - Uso de pool de conexiones para alta concurrencia.
+  - Uso de variables de entorno para credenciales:
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+  - Las credenciales NUNCA deben estar hardcodeadas en el código fuente.
+
+4. 🗄️ Base de Datos (MySQL)
+---------------------------
+- Tablas principales:
+  - usuarios (id, nombre, rol, email, teléfono, contraseña, fecha_nacimiento, created_at, updated_at)
+  - roles (id, nombre)
+  - medicos (id, nombre, especialidad, disponibilidad, estado, ruta_foto, created_at, updated_at)
+  - especialidades (id, nombre)
+  - citas (id, fecha, hora_inicio, hora_fin, estado, canal, paciente_id, medico_id, sede_id, created_at, updated_at)
+    * Índice compuesto recomendado: (medico_id, fecha, estado) para consultas de disponibilidad.
+  - sedes (id, nombre, dirección, estado)
+  - auditoria (id, usuario_id, accion, entidad, entidad_id, detalle, canal, ip, timestamp_accion)
+    * `accion`: login, cambio_contraseña, agendar_cita, cancelar_cita, reasignar_cita.
+    * `canal`: plataforma_web, whatsapp, n8n, recepcion, administrador (medio por el que se realizó la acción).
+    * `timestamp_accion`: fecha y hora exacta (zona GMT-5) en que ocurrió la acción.
+    * Esta tabla es consultable para reportes administrativos y toma de decisiones.
+    * Índice recomendado: (usuario_id, accion, timestamp_accion).
+
+- Validaciones:
+  - Números: solo campos numéricos.
+  - Texto: solo letras.
+  - Teléfonos: con indicativo de país.
+  - Correos: estructura válida de email.
+  - Foto/avatar de médicos: en la fase actual se usarán avatares generados (ej. iniciales del nombre
+    con color de fondo único por médico), sin almacenamiento de imágenes en el servidor.
+    El campo `ruta_foto` en la tabla `medicos` queda disponible para incorporar fotos reales en una fase futura.
+
+5. 🌐 Hosting (Hostinger)
+-------------------------
+- Despliegue de Node.js + React + MySQL + Redis.
+- Redis se utiliza como capa de caché para disponibilidad de médicos (ver sección 3).
+- Configuración de puertos abiertos para integraciones externas (WhatsApp/n8n).
+- Escalabilidad para miles de usuarios simultáneos.
+- Variables de entorno configuradas en el entorno de producción.
+  - Adicionales para Redis: REDIS_HOST, REDIS_PORT, REDIS_PASSWORD.
+
+6. 🚨 Panel de Espacios Vacíos (Administrador)
+------------------------------------------------
+- El sistema debe detectar automáticamente turnos de médicos con disponibilidad activa
+  pero sin citas agendadas, dentro de una ventana de menos de 6 horas.
+- El panel de administrador mostrará una sección de alertas con estos espacios vacíos,
+  indicando: médico, especialidad, sede, fecha y hora del turno libre.
+- Desde este panel, el administrador podrá reasignar manualmente una cita existente
+  o gestionar la ocupación del espacio.
+- Arquitectura preparada para fase futura:
+  * Pre-asignación de citas: el sistema podrá marcar un turno como "disponible urgente".
+  * Notificación multicanal a usuarios (WhatsApp, n8n, plataforma web) para que alguno
+    tome el turno disponible de forma dinámica.
+  * El canal de notificación y la lógica de pre-asignación deben diseñarse como módulo
+    independiente para facilitar su incorporación sin afectar el core del sistema.
+
+7. 📊 Jerarquía de la Información
+---------------------------------
+1. Disponibilidad del médico → raíz del sistema.
+2. Citas → encadenadas automáticamente en bloques de 20 minutos.
+3. Paneles → muestran disponibilidad y citas según rol.
+4. Reportes → resumen de ocupación, asistencia e inasistencias.
+5. Exportación PDF/CSV → cuadro de turnos y métricas.
+

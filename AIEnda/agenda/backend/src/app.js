@@ -3,6 +3,7 @@
 
 process.env.TZ = 'America/Bogota';
 
+const path        = require('path');
 const express     = require('express');
 const helmet      = require('helmet');
 const cors        = require('cors');
@@ -18,11 +19,13 @@ const app = express();
 // ── Seguridad de cabeceras ──────────────────────────────────────────────────
 app.use(helmet());
 
-// ── CORS ───────────────────────────────────────────────────────────────────
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+// ── CORS (solo activo en desarrollo; en prod el mismo Express sirve el front) ─
+if (process.env.NODE_ENV !== 'production') {
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+  }));
+}
 
 // ── Rate limit general de la API (no el de login, ese está en su middleware) ─
 app.use('/api', rateLimit({
@@ -45,7 +48,17 @@ app.use('/api/reportes',       reportesRoutes);
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-// ── Manejo de rutas no encontradas ─────────────────────────────────────────
+// ── Frontend estático (build de React) ─────────────────────────────────────
+// En producción Hostinger, el build de React se copia a backend/public/
+const frontendBuild = path.join(__dirname, '..', 'public');
+app.use(express.static(frontendBuild));
+
+// Cualquier ruta que no sea /api/* devuelve index.html (SPA)
+app.get(/^(?!\/api).*/, (_req, res) => {
+  res.sendFile(path.join(frontendBuild, 'index.html'));
+});
+
+// ── Manejo de rutas de API no encontradas ──────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
 module.exports = app;
